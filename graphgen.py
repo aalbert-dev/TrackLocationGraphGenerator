@@ -3,10 +3,10 @@ class graphgen:
     def __init__(self):
         self.list_of_nodes = []
         self.origin = (0, 0)
-        self.max_distance = 340
+        self.max_distance = 350
         self.bound_function = lambda p: ((p[0] ** 2 + p[1] ** 2) ** 0.5) <= self.max_distance
         self.visited = []
-        self.delta = 10
+        self.delta = 5
 
     # check if a location has already been generated for a location
     def checkLocation(self, point):
