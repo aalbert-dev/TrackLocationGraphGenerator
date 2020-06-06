@@ -1,7 +1,6 @@
 from PIL import Image, ImageDraw
-import tracksim
 from graphgen import graphgen as GraphGenerator
-import resource, sys
+import sys
 
 # track constraints in meters & radians
 long_straightaway_length = 1006
@@ -14,6 +13,8 @@ turn_banking = 0.1606
 
 # display constraints in pixels
 origin = (500, 500)
+grid_size = (1000, 1000)
+max_point_distance = 350
 
 # car constraints in meters 
 length = 5.12318 * 10
@@ -21,9 +22,10 @@ width = 1.9431 * 10
 vector = (-1, 0)
 
 # vehicle model constraints
-racing_line_distance_weight = 5
-vehicle_distance_weight = 1
-occupancy_over_distance_numerator = 200
+racing_line_distance_weight = 40
+vehicle_distance_weight = 10
+car_vector_weight = 2000
+occupancy_factors = 3
 
 # check if a point is within car bounding box
 def pointInCarBox(point):
@@ -36,14 +38,20 @@ def fillPixels(img, locations):
         if pointInCarBox(point.position): 
             point.occupancy = 1
         else:
-            point.occupancy = occupancy_over_distance_numerator / distanceToLine(coordinate)
+            point.occupancy = getPointTotalOccupancy(coordinate) / occupancy_factors
         drawPoint(img, coordinate, getColorFromOccupancy(point.occupancy))
 
+# scale occupancy input factor between 0 - 1
+def scaleFactor(minv, maxv, value):
+    return (maxv - value) / maxv
+
 # get distance from a point to the racing line
-def distanceToLine(point):
-    line_distance =  abs(point[1] - origin[1]) * racing_line_distance_weight
-    car_distance = distance(point, origin) * vehicle_distance_weight
-    return line_distance + car_distance
+def getPointTotalOccupancy(point):
+    line_distance_factor = scaleFactor(0, max_point_distance / 2, abs(point[1] - origin[1]))
+    car_distance_factor = scaleFactor(0, max_point_distance * 2, distance(point, origin) * 2) 
+    car_vector_factor = 1 - scaleFactor(0, max_point_distance * 2, origin[0] - point[0]) 
+    # print(line_distance_factor, car_distance_factor, car_vector_factor)
+    return line_distance_factor + car_distance_factor + car_vector_factor
 
 # calculate distance between points
 def distance(p1, p2):
@@ -70,16 +78,24 @@ def getColorFromOccupancy(occupancy):
 
 # draw racing line as vector extending from car
 def drawRacingLine(img):
-    drawLine(img, origin, (origin[0]- 200, origin[1]), (0, 0, 235))
+    drawLine(img, (origin[0] - length / 2 - 10, origin[1]), (origin[0] - length / 2 + 10, origin[1]), (0, 255, 0))
 
 # draw vehicle bounding box
+def drawVehicle(img):
+    drawLine(img, (origin[0] - length / 2, origin[1] - width / 2), (origin[0] + length / 2, origin[1] - width / 2), (0, 0, 235))
+    drawLine(img, (origin[0] + length / 2, origin[1] - width / 2), (origin[0] + length / 2, origin[1] + width / 2), (0, 0, 235))
+    drawLine(img, (origin[0] + length / 2, origin[1] + width / 2), (origin[0] - length / 2, origin[1] + width / 2), (0, 0, 235))
+    drawLine(img, (origin[0] - length / 2, origin[1] + width / 2), (origin[0] - length / 2, origin[1] - width / 2), (0, 0, 235))
+    drawRacingLine(img)
 
 # change system default stack frame limit
 sys.setrecursionlimit(10**6)
-resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
+if sys.platform != "win32":
+    import resource
+    resource.setrlimit(resource.RLIMIT_STACK, (2**29,-1))
 
 # create blank image
-image = Image.new('RGB', (1000, 1000))
+image = Image.new('RGB', grid_size)
 
 # create graph generator and generate nodes to represent locations
 gg = GraphGenerator()
@@ -88,9 +104,6 @@ gg.addLocations()
 
 # fill in pixels for each location in graph
 fillPixels(image, gg.getLocations())
-
-# draw line to represent racing line
-# drawRacingLine(image)
 
 # draw vehicle bounding box
 drawVehicle(image)
