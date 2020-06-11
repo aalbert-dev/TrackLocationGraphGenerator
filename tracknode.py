@@ -1,5 +1,7 @@
+from functools import total_ordering
+@total_ordering
 class tracknode:
-    def __init__(self, position):
+    def __init__(self, position, distance):
 
         # occupancy represents probability of vehicle at this node
         self.occupancy = 0
@@ -16,3 +18,19 @@ class tracknode:
 
         # position relative to track origin
         self.position = position
+
+        # distance between nodes
+        self.nodeDistance = distance
+
+        # hold previous node for dijkstra search
+        self.prevNode = None
+
+        # distance to this node from origin
+        self.distanceTo = 9999999
+
+    # comparison methods
+    def __eq__(self, other):
+        return self.distanceTo == other.distanceTo
+
+    def __gt__(self, other):
+        return self.distanceTo > other.distanceTo
